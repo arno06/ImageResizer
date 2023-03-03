@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Resizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        html, body{width:100%;height:100%;padding:0;margin:0;font-family: 'Open Sans', sans-serif;box-sizing: border-box;font-size:14px;}
+        body{background:#f5f8f9;display:flex;flex-direction: column;gap:2em;justify-content: start;align-items: center;padding-top:1em;}
+        .steps{background:#fff;border-radius:10px;padding:1em;box-sizing: border-box;width:1000px;box-shadow: 0 5px 1em rgba(0, 0, 0, .2);text-align: center;}
+        .steps h2{margin:0 0 1em 0;padding:0;}
+        #img_infos img{max-width: 200px;max-height: 200px;}
+        #dimensions>div:first-of-type{display:flex;flex-wrap: wrap;}
+        #dimensions>div:first-of-type>p{width:calc(50% - 2em - 1px);margin:0;padding: 1em;border-bottom:solid 1px #efefef;}
+        #dimensions>div:first-of-type>p:nth-child(odd){border-right:solid 1px #efefef;}
+        #dimensions>div:first-of-type>p input{outline: none;padding:0.5em;width:150px;}
+        #dimensions>div>label{font-size:.9em;}
+        #dimensions>div>input[type="text"]{padding:0.5em;}
+    </style>
+    <script src="https://dependencies.arnaud-nicolas.fr/?need=Template,Stage"></script>
+</head>
+<body>
+  <div class="steps">
+      <h2>Select Image</h2>
+      <div>
+          <input type="file" id="file_selector"/>
+      </div>
+      <div id="img_infos" style="display:none;">
+          <img src=""/>
+          <h3>Original resolution :</h3>
+          <span class="width">Width : <b></b></span>
+          <span class="height">Height : <b></b></span>
+      </div>
+  </div>
+    <div id="dimensions" class="steps">
+        <h2>Dimensions</h2>
+        <div></div>
+        <div class="actions">
+            <button id="add_dimension">+</button>
+        </div>
+    </div>
+<div id="results" class="steps">
+    <h2>Results</h2>
+    <button id="go_button">Go</button>
+    <div class="results"></div>
+</div>
+<script>
+    let proportions = 0;
+    (function(){
+        let default_w = 0;
+        let default_h = 0;
+        let base_img = document.querySelector('#img_infos img');
+        function init(){
+            document.querySelector('#file_selector').addEventListener('change', (e)=>{
+                if(!e.currentTarget.files.length){
+                    return;
+                }
+                let file = e.currentTarget.files[0];
+                if(file.type.indexOf('image/') === -1){
+                    return;
+                }
+                let r = new FileReader();
+                r.addEventListener('load', (pE)=>{
+                    base_img.onload = ()=>{
+                        default_w = base_img.naturalWidth;
+                        default_h = base_img.naturalHeight;
+                        proportions = default_w/default_h;
+                        document.querySelector('#img_infos span.width b').innerHTML = base_img.naturalWidth+'px';
+                        document.querySelector('#img_infos span.height b').innerHTML = base_img.naturalHeight+'px';
+                        document.querySelector('#img_infos').style.display = 'block';
+                        document.querySelector('#file_selector').parentNode.style.display = 'none';
+                    };
+                    base_img.src = pE.currentTarget.result;
+                });
+                r.readAsDataURL(file);
+            });
+
+            document.querySelector('#add_dimension').addEventListener('click', (e)=>{
+                let tpl = new Template('dimensions_tpl', {w:default_w, h:default_h});
+                tpl.render(document.querySelector('#dimensions>div'));
+                document.querySelector('#dimensions>div>p:last-of-type .w').focus();
+            });
+
+            document.querySelector('#go_button').addEventListener('click', (e)=>{
+                document.querySelector('#results .results').innerHTML = '';
+                document.querySelectorAll('#dimensions>div>p').forEach((pElement)=>{
+                    let w = pElement.querySelector('.w').value;
+                    let h = pElement.querySelector('.h').value;
+                    let s = new Stage(w, h, document.querySelector('#results .results'));
+                    s.context.imageSmoothingEnabled = true;
+                    s.drawImage(base_img, new Rectangle(0, 0, default_w, default_h), new Rectangle(0, 0, w, h));
+                    s.addEventListener(Event.DRAWN, ()=>{
+                        let img = document.createElement('img');
+                        img.src = s.domElement.toDataURL("image/png");
+                        document.querySelector('#results .results').appendChild(img);
+                        s.pause();
+                        s.domElement.remove();
+                        s = null;
+                    });
+
+                });
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    })();
+
+    function widthChanged(e){
+        let w = e.currentTarget.value;
+        e.currentTarget.parentNode.querySelector('.h').value = w*proportions;
+        e.currentTarget.parentNode.querySelector('.h').setAttribute("value", w*proportions);
+        e.currentTarget.setAttribute("value", w);
+    }
+</script>
+<script type="text/template" id="dimensions_tpl">
+    <p><label>Width: </label><input type="text" class="w" value="{$w}" onchange="widthChanged(event);"> <label>Height: </label><input type="text" class="h" value="{$h}" disabled></p>
+</script>
+</body>
+</html>
